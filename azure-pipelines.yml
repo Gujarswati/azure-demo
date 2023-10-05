@@ -6,14 +6,78 @@
 trigger:
 - main
 
+
 pool:
-  vmImage: ubuntu-latest
+  vmImage: windows-latest
+
+variables:
+  solution: '**/*.sln'
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+  azureSubscription: 'Free Trial (0cb5f6d2-2bef-49cd-8050-1b67ded35c2b)'
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+- task: NuGetToolInstaller@1
+
+- task: NuGetCommand@2
+  inputs:
+    restoreSolution: '$(solution)'
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'restore'
+    projects: '**/*.csproj'
+    feedsToUse: 'select'
+    vstsFeed: 'moofwd-test'
+
+- task: DotNetCoreCLI@2
+  displayName: 'build'
+  inputs:
+    projects: '**/*.csproj'
+    arguments:  /p:DeployOnBuild=true /p:DeployDefaultTarget=WebPublish /p:WebPublishMethod=FileSystem /p:DeleteExistingFiles=True /p:publishUrl="$(System.DefaultWorkingDirectory)\\WebAppContent"
+    configuration: --configuration $(BuildConfiguration)
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'test'
+    projects: '**/[Tt]ests/.csproj'
+    arguments: '--configuration $(BuildConfiguration)'
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'publish'
+    projects: '**/*.csproj'
+    publishWebProjects: false
+    arguments: '--configuration $(BuildConfiguration) --output $(build.artifactstagingdirectory)'
+    zipAfterPublish: true
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    targetPath: '$(build.artifactstagingdirectory)'
+    ArtifactName: 'drop' 
+    
+- task: AzureRmWebAppDeployment@4
+  inputs:
+      ConnectionType: 'ServiceConeection-Manual'
+      azureSubscription: 'Free Trial (0cb5f6d2-2bef-49cd-8050-1b67ded35c2b)'
+      appType: webApp
+      WebAppName: swatiMyApp
+      deployToSlotOrASE: true
+      ResourceGroupName: swati-test
+      package: '$(build.artifactstagingdirectory)'
+
+- task: CopyFiles@2
+  inputs:
+      targetFolder: '$(Build.ArtifactStagingDirectory)' 
+
+- task: PublishBuildArtifacts@1    
+  displayName: 'Publish Artifact: drop'
+  inputs:
+    PathtoPublish: '$(build.artifactstagingdirectory)'
+
+- task: AzureWebApp@1
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  inputs:
+    azureSubscription: 'Free Trial (0cb5f6d2-2bef-49cd-8050-1b67ded35c2b)'
+    appName: swatiMyApp
+    appType: webApp
