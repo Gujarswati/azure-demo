@@ -58,7 +58,7 @@ steps:
     
 - task: AzureRmWebAppDeployment@4
   inputs:
-      ConnectionType: 'ServiceConeection-Manual'
+      ConnectionType: 'SC-manual'
       azureSubscription: 'Free Trial (0cb5f6d2-2bef-49cd-8050-1b67ded35c2b)'
       appType: webApp
       WebAppName: swatiMyApp
